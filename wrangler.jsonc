@@ -2,6 +2,10 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "pwhl-fantasy",
   "compatibility_date": "2026-10-05",
+   "vars": {
+    "VITE_SUPABASE_ANON_KEY": "sb_publishable_o8xeL22C5hMqFAYl0S91sA_-w6Krf7v",
+    "VITE_SUPABASE_URL": "https://neauhasecrdldimxwmnv.supabase.co"
+  },
   "assets": {
     "directory": "./dist",
     "not_found_handling": "single-page-application",
