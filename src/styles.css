@@ -86,6 +86,333 @@ input {
   margin: 0 auto 24px;
 }
 
+.league-panel {
+  margin-bottom: 24px;
+}
+
+.league-heading h2 {
+  margin: 0;
+  font-size: clamp(1.65rem, 5vw, 2.2rem);
+  letter-spacing: -0.04em;
+}
+
+.league-heading .intro {
+  max-width: 680px;
+  margin-bottom: 0;
+}
+
+.league-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 28px;
+  margin-top: 24px;
+}
+
+.league-create,
+.league-list,
+.league-detail {
+  min-width: 0;
+  padding-top: 22px;
+  border-top: 1px solid rgb(219 232 244 / 13%);
+}
+
+.league-create h3,
+.league-list h3,
+.league-detail h3 {
+  margin: 0 0 14px;
+}
+
+.league-create .fine-print {
+  margin-top: 0;
+}
+
+.league-create form {
+  margin-top: 18px;
+}
+
+.league-create input,
+.invite-link input {
+  min-height: 44px;
+}
+
+.league-detail {
+  margin-top: 28px;
+}
+
+.roster-workspace {
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px solid rgb(219 232 244 / 13%);
+}
+
+.roster-workspace h3,
+.roster-workspace h4 {
+  margin: 0 0 12px;
+}
+
+.roster-workspace .section-heading > button {
+  margin: 0;
+  white-space: nowrap;
+}
+
+.roster-workspace .section-heading p,
+.roster-workspace .fine-print {
+  margin: 0;
+  color: var(--muted);
+}
+
+.roster-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 18px 0;
+}
+
+.roster-summary span {
+  padding: 9px 12px;
+  border: 1px solid rgb(219 232 244 / 13%);
+  border-radius: 9px;
+  background: rgb(255 255 255 / 3%);
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.roster-summary strong {
+  color: #f4f7fb;
+}
+
+.roster-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 24px;
+}
+
+.roster-layout > section {
+  min-width: 0;
+}
+
+.selected-player-list,
+.player-pool {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.selected-player-list li,
+.player-pool li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 9px;
+  background: rgb(255 255 255 / 4%);
+}
+
+.selected-player-list li > span,
+.player-pool li > div {
+  min-width: 0;
+}
+
+.selected-player-list strong,
+.selected-player-list small,
+.player-pool strong,
+.player-pool small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.selected-player-list small,
+.player-pool small {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.player-pool li button {
+  flex: 0 0 auto;
+}
+
+.player-unavailable {
+  color: #ffd391 !important;
+}
+
+.roster-issues,
+.roster-valid {
+  margin: 14px 0 0;
+  padding: 12px 12px 12px 30px;
+  border-radius: 9px;
+  background: rgb(255 195 112 / 7%);
+  color: #ffd391;
+  font-size: 0.88rem;
+}
+
+.roster-valid {
+  padding-left: 12px;
+  background: rgb(131 239 206 / 7%);
+  color: var(--accent);
+}
+
+.roster-warning {
+  margin: 12px 0;
+  padding: 14px;
+  border: 1px solid rgb(255 195 112 / 30%);
+  border-radius: 10px;
+  background: rgb(255 195 112 / 6%);
+  color: #ffd391;
+}
+
+.roster-warning p {
+  margin: 6px 0 0;
+  line-height: 1.5;
+}
+
+.player-pool-heading {
+  align-items: center;
+}
+
+.player-pool-heading label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+}
+
+.player-pool-heading select,
+.player-search input {
+  min-width: 0;
+  min-height: 42px;
+  padding: 0 10px;
+  border: 1px solid #496070;
+  border-radius: 8px;
+  background: #0b1725;
+  color: white;
+}
+
+.player-search {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.player-pool {
+  max-height: 450px;
+  overflow-y: auto;
+  padding-right: 3px;
+}
+
+.player-pool li button {
+  min-height: 38px;
+}
+
+.league-detail .section-heading {
+  margin-bottom: 20px;
+}
+
+.league-detail h4 {
+  margin: 22px 0 12px;
+}
+
+.league-select-list,
+.member-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.league-select {
+  display: grid;
+  gap: 5px;
+  width: 100%;
+  min-height: auto;
+  margin: 0;
+  padding: 14px;
+  border: 1px solid rgb(219 232 244 / 13%);
+  background: rgb(255 255 255 / 3%);
+  color: #f4f7fb;
+  text-align: left;
+}
+
+.league-select:hover:not(:disabled) {
+  background: rgb(131 239 206 / 8%);
+}
+
+.league-select.selected {
+  border-color: rgb(131 239 206 / 60%);
+  background: rgb(131 239 206 / 8%);
+}
+
+.league-select span,
+.member-list small {
+  color: var(--muted);
+  font-size: 0.84rem;
+  font-weight: 400;
+}
+
+.member-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px;
+  border-radius: 10px;
+  background: rgb(255 255 255 / 4%);
+}
+
+.member-list strong,
+.member-list small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.member-list small {
+  margin-top: 4px;
+  text-transform: capitalize;
+}
+
+.invite-controls {
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid rgb(219 232 244 / 13%);
+}
+
+.invite-controls h4 {
+  margin-top: 0;
+}
+
+.invite-link {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  margin: 16px 0;
+}
+
+.invite-link input {
+  min-width: 0;
+  font-size: 0.85rem;
+}
+
+.invite-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.invite-actions button {
+  margin: 0;
+}
+
+.invite-notice {
+  padding: 12px;
+  border-radius: 10px;
+  background: rgb(131 239 206 / 7%);
+  color: var(--accent);
+}
+
 .admin-panel {
   padding: clamp(22px, 4vw, 36px);
 }
@@ -489,6 +816,37 @@ code {
 
   .admin-fields,
   .scoring-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .league-layout {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+
+  .roster-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .roster-workspace .section-heading > button {
+    width: 100%;
+  }
+
+  .roster-summary {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .player-pool-heading {
+    align-items: flex-start;
+  }
+
+  .player-pool-heading label {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .invite-link {
     grid-template-columns: 1fr;
   }
 

@@ -232,18 +232,23 @@ The site owner approved these rules on October 5, 2026. The season-8 comparison 
 - Implement league creation with commissioner, roster size, and budget.
 - Implement invite-link creation, rotation, early closure, validation, and automatic expiry at roster lock.
 - Implement one membership and one team per user per league.
-- Add league and member views with clear commissioner/member permissions.
+- Add league and member views with clear commissioner/member permissions, including soft member removal and rejoining through an open invite.
 
 **Exit criteria:** Two test accounts can create and join a league without duplicate membership or cross-league data exposure.
 
+**Implementation status (October 5, 2026):** The league schema, RLS policies, and transactional database functions now create leagues, commissioner memberships, teams, and hashed invitations together; joins are idempotent and preserve a team across commissioner removal and invite-based rejoining. Commissioners can rotate or close invites and remove managers, but cannot remove themselves. The signed-in league hub supports league creation, invitation acceptance after sign-in, member lists, invite management, and soft removal. pgTAP coverage exercises creation/joining, duplicate requests, removal/rejoining, invite rotation/closure, lock expiry, and private-data access. The migration and database tests still need to be applied and run against a local or hosted Supabase database before considering the exit criteria verified in an environment.
+
 ### Phase 5: Build the mobile roster experience
 
-- Create a searchable/filterable player list with position, team, tier, and cost.
+- Create a searchable/filterable player list with position, team, tier, and cost; only active players with reviewed season assignments and a configured tier cost can be added.
 - Implement add/remove interactions and live budget, roster-size, and position feedback.
-- Keep progressive edits in a current-device-only unsaved draft and show which rules remain unmet.
-- Persist only valid rosters; validate the complete roster atomically in the database when saving and locking.
+- Keep progressive edits in a browser-local, current-device-only draft scoped to the manager and team. Keep the previously saved roster intact if draft validation or saving fails.
+- Persist only complete valid rosters through a trusted database function that atomically checks team ownership, active membership, player eligibility, roster size, budget, positional minimums, and the global lock deadline.
+- Keep saved selections unchanged when catalog eligibility, assignments, or costs change. Revalidate them against the current catalog and flag invalid saved rosters for correction; do not silently adjust them.
 
 **Exit criteria:** Managers can assemble valid rosters on a phone-sized viewport, and invalid budget/position/size combinations are rejected by trusted server-side logic.
+
+**Implementation status (October 5, 2026):** The roster table, manager-only roster reads, and atomic `save_fantasy_roster` database function are implemented, along with the responsive player pool, search/position filter, budget and position feedback, device-local draft, and save flow. Client-side roster validation has unit coverage and database authorization/validation scenarios are in `supabase/tests/roster_rls.test.sql`. Saved rosters are not rewritten when catalog data changes. Apply the new migration and run the Supabase database tests in a disposable development database before treating the database exit criteria as environment-verified.
 
 ### Phase 6: Implement roster lock and transfers
 
@@ -290,4 +295,4 @@ The site owner approved these rules on October 5, 2026. The season-8 comparison 
 ## Items to settle during implementation
 
 - Verify the upstream data source's usage terms, rate limits, and appropriate automated refresh cadence before enabling live imports.
-- Define membership removal/league deletion behavior and data retention before building commissioner controls.
+- Define commissioner handoff and league deletion/data-retention behavior before adding those controls.

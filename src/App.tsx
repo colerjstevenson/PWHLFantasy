@@ -1,6 +1,8 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
+import { LeaguePanel } from "./components/LeaguePanel";
 import { SiteAdminPanel } from "./components/SiteAdminPanel";
+import { readLeagueInviteToken } from "./lib/league";
 import { getDisplayNameError } from "./lib/profile";
 import { isSupabaseConfigured, supabase } from "./lib/supabase";
 
@@ -10,6 +12,7 @@ type Profile = {
 };
 
 export default function App() {
+  const inviteToken = readLeagueInviteToken(window.location.search);
   const [session, setSession] = useState<Session | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
@@ -79,6 +82,7 @@ export default function App() {
       <Page>
         <SignInForm
           authError={authError}
+          hasInvite={Boolean(inviteToken)}
           onSignedIn={() => setAuthError(null)}
         />
       </Page>
@@ -88,6 +92,7 @@ export default function App() {
   return (
     <Page>
       <ProfilePanel session={session} onError={setAuthError} />
+      <LeaguePanel userId={session.user.id} inviteToken={inviteToken} />
       <SiteAdminPanel userId={session.user.id} />
       {authError && (
         <p className="error" role="alert">
@@ -110,9 +115,11 @@ function Page({ children }: { children: ReactNode }) {
 
 function SignInForm({
   authError,
+  hasInvite,
   onSignedIn,
 }: {
   authError: string | null;
+  hasInvite: boolean;
   onSignedIn: () => void;
 }) {
   const [email, setEmail] = useState("");
@@ -132,7 +139,7 @@ function SignInForm({
     try {
       const { error: signInError } = await supabase.auth.signInWithOtp({
         email: email.trim(),
-        options: { emailRedirectTo: window.location.origin },
+        options: { emailRedirectTo: window.location.href },
       });
       if (signInError) throw signInError;
       setSent(true);
@@ -152,7 +159,9 @@ function SignInForm({
       <p className="eyebrow">PWHL Fantasy</p>
       <h1 id="welcome-title">Your league starts here.</h1>
       <p className="intro">
-        Sign in with a secure email link to get your fantasy season underway.
+        {hasInvite
+          ? "Sign in with a secure email link to accept your league invitation."
+          : "Sign in with a secure email link to get your fantasy season underway."}
       </p>
       <form onSubmit={handleSubmit}>
         <label htmlFor="email">Email address</label>

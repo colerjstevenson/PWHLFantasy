@@ -65,6 +65,30 @@ The database RLS integration tests are in `supabase/tests/`. They can be run
 against a disposable local Supabase database with `npx supabase test db`; never
 run test fixtures against production data.
 
+## Phase 4: leagues and invitations
+
+Apply the versioned database migrations to the development project before
+using league features. Signed-in users can create leagues for the next season
+before its roster-lock deadline. Creation atomically creates the commissioner
+membership, fantasy team, and first invitation. Roster sizes must be at least
+six to fit the required position minimums.
+
+Invitation tokens are generated in the browser using cryptographic randomness;
+only their SHA-256 hashes are stored in Postgres. A commissioner can copy the
+new link, rotate it to invalidate the old one, or close it early. Invites stop
+working automatically at roster lock. A visitor can sign in from an invite
+link and is joined after authentication. Joining is idempotent.
+
+Commissioners can remove managers. Removal revokes access but preserves the
+membership and team records; a removed manager can rejoin through an open
+invitation, restoring the existing team. The commissioner cannot remove
+themselves. League data reads are scoped to active members, and trusted
+database functions enforce membership, invite, and commissioner operations.
+
+For local authorization and lifecycle coverage, start the local Supabase stack
+and run `npx supabase test db`. The tests are transactional and use disposable
+fixtures; do not direct them at production.
+
 ## Phase 3: player catalog and site-owner administration
 
 Apply the Phase 3 migration with the normal database migration process. The
@@ -108,3 +132,27 @@ The initial foundation includes magic-link authentication, a self-only
 profile, versioned schema migrations, RLS, test/build tooling, and Cloudflare
 static hosting configuration. League, roster, and transfer features remain
 deferred to their later phases.
+
+## Phase 5: roster building
+
+Apply the versioned migrations to the development Supabase project before
+building a roster. In an active league, use **Your roster** to search the
+season's player catalog by player/team and filter by position. Only active
+players with a reviewed season assignment and a configured tier cost can be
+added. The roster view shows selected players, budget, roster slots, and
+forward/defence/goalie minimums as you make changes.
+
+Unsaved changes are stored in browser local storage on the current device,
+scoped to the signed-in manager and their league team. Saving sends the entire
+roster to a trusted database function, which atomically validates ownership,
+league membership, active player eligibility, exact roster size, budget,
+position minimums, and the global roster-lock deadline. A rejected save leaves
+the previous saved roster unchanged. Direct roster writes are not granted to
+authenticated clients, and a manager can read only their own saved roster.
+
+If a site-owner catalog update makes a saved roster invalid, the app flags it
+without silently changing the saved selections. Managers must correct and save
+the roster before lock. Client rules are covered by `npm test`; database
+authorization and roster validation are covered by
+`npx supabase test db` against a disposable local Supabase database. Never run
+database test fixtures against production.
