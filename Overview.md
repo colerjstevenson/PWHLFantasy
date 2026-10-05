@@ -8,23 +8,42 @@ This document records the agreed product behavior and a proposed implementation 
 
 ## Confirmed product decisions
 
-| Area | Decision |
-|---|---|
-| League creation | Any authenticated user can create a league; its creator is its commissioner. |
-| League membership | Anyone with the invitation link can join until the global roster-lock deadline. The commissioner can close the link earlier. |
-| Managers and teams | Each league member manages exactly one fantasy team. |
-| Roster size and budget | The commissioner sets both when creating a league. |
-| Minimum positions | Each roster must contain at least 3 forwards, 2 defence, and 1 goalie. |
-| Player ownership | The same real-world player may appear on multiple fantasy teams, including teams in the same league. |
-| Tiers and prices | There are five global tiers. Prior-season totals under the global scoring rules generate an initial tier assignment; the site owner reviews and can correct assignments. The site owner sets the cost of each tier. Tier assignments and costs are shared by all leagues and freeze at roster lock. |
-| Scoring | One site-wide set of stat point values applies to all leagues. Only the site owner can edit it, and it becomes read-only at roster lock. |
-| Roster deadline | One global deadline tied to the PWHL regular-season start. Only the site owner can adjust it. Use Eastern Time, represented as `America/New_York` so daylight-saving changes are handled correctly. |
-| Transfers | A transfer swaps one player for another. Each manager gets 3 transfers per calendar month; unused transfers do not roll over. A transfer uses the month in which it is confirmed. |
-| Transfer effective time | A confirmed transfer takes effect at the next midnight Eastern Time. |
-| Scoring updates | Count only completed/final games. If official stats are corrected later, recalculate affected fantasy points and standings. |
-| Season result | Score regular-season games only. A tie for first place is a shared win. |
-| Authentication | Supabase email magic-link sign-in. |
-| Hosting and data | Host on Cloudflare; use Supabase for authentication and Postgres. Use [PWHL-Data-Reference](https://github.com/IsabelleLefebvre97/PWHL-Data-Reference) as the documented guide to PWHL data sources and formats. |
+| Area                    | Decision                                                                                                                                                                                                                                                                                            |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| League creation         | Any authenticated user can create a league; its creator is its commissioner.                                                                                                                                                                                                                        |
+| League membership       | Anyone with the invitation link can join until the global roster-lock deadline. The commissioner can close the link earlier.                                                                                                                                                                        |
+| Managers and teams      | Each league member manages exactly one fantasy team.                                                                                                                                                                                                                                                |
+| Roster size and budget  | The commissioner sets both when creating a league.                                                                                                                                                                                                                                                  |
+| Minimum positions       | Each roster must contain at least 3 forwards, 2 defence, and 1 goalie.                                                                                                                                                                                                                              |
+| Player ownership        | The same real-world player may appear on multiple fantasy teams, including teams in the same league.                                                                                                                                                                                                |
+| Tiers and prices        | There are five global tiers. Prior-season totals under the global scoring rules generate an initial tier assignment; the site owner reviews and can correct assignments. The site owner sets the cost of each tier. Tier assignments and costs are shared by all leagues and freeze at roster lock. |
+| Scoring                 | One site-wide set of stat point values applies to all leagues. Use the confirmed Phase 1 rubric below; only the site owner can edit it, and it becomes read-only at roster lock.                                                                                                                    |
+| Roster deadline         | The confirmed global deadline is December 5, 2026, at 3:00 p.m. Eastern, tied to the first 2026-27 regular-season game. Only the site owner can adjust it. Represent Eastern Time as `America/New_York` so daylight-saving changes are handled correctly.                                           |
+| Transfers               | A transfer swaps one player for another. Each manager gets 3 transfers per calendar month; unused transfers do not roll over. A transfer uses the month in which it is confirmed.                                                                                                                   |
+| Transfer effective time | A confirmed transfer takes effect at the next midnight Eastern Time.                                                                                                                                                                                                                                |
+| Scoring updates         | Count only completed/final games. If official stats are corrected later, recalculate affected fantasy points and standings.                                                                                                                                                                         |
+| Season result           | Score regular-season games only. A tie for first place is a shared win.                                                                                                                                                                                                                             |
+| Authentication          | Supabase email magic-link sign-in.                                                                                                                                                                                                                                                                  |
+| Hosting and data        | Host on Cloudflare; use Supabase for authentication and Postgres. Use [PWHL-Data-Reference](https://github.com/IsabelleLefebvre97/PWHL-Data-Reference) as the documented guide to PWHL data sources and formats.                                                                                    |
+
+### Phase 1 scoring rubric
+
+The site owner confirmed these values on October 5, 2026. Short-handed goals and assists are bonuses in addition to the base goal/assist values. The goalie formula uses the goalie-specific values below (including goalie goals and assists); skater-only categories are not added to goalie totals.
+
+| Statistic                   | Skater points | Goalie points |
+| --------------------------- | ------------: | ------------: |
+| Goal                        |             3 |            50 |
+| Assist                      |             2 |            25 |
+| Shot                        |           0.5 |             — |
+| Short-handed goal (bonus)   |             5 |             — |
+| Short-handed assist (bonus) |             3 |             — |
+| Blocked shot                |             3 |             — |
+| Hit                         |             3 |             — |
+| Plus/minus                  |             1 |             — |
+| Win                         |             — |             5 |
+| Shutout                     |             — |            10 |
+| Save                        |             — |          0.25 |
+| Goal against                |             — |            -1 |
 
 ## User roles and permissions
 
@@ -131,6 +150,61 @@ Schema names are provisional; constraints and transaction boundaries are require
 
 **Exit criteria:** The app can reliably identify a player and final game, derive the global-scoring prior-season total, and identify data conditions that need owner review.
 
+#### Phase 1 validation findings (October 5, 2026)
+
+This is a research spike only; no application or production importer has been built. The findings below are based on the [unofficial PWHL-Data-Reference](https://github.com/IsabelleLefebvre97/PWHL-Data-Reference) at commit `937890772f351ee603afaa428814354ffdbf091d`, its included data dictionary/CSV files, direct reads of the documented HockeyTech endpoints, and the [official PWHL opening-weekend announcement](https://www.thepwhl.com/en/news/2026/september/28/pwhl-opening-weekend-scheduled-for-december-5-6).
+
+| Area                          | Verified evidence                                                                                                                                                                                                                                                                                                                                                  | Implementation consequence                                                                                                                                                                                                                                                                                                                                                                                                          |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Reference data freshness      | The reference data README says its last full update was April 8, 2025. Its CSV collection contains 2024/2025 season data, not a current 2025-26 season catalog.                                                                                                                                                                                                    | Use the CSVs as historical examples/fixtures only. Do not use them as the app's live catalog or assume they represent the current prior season.                                                                                                                                                                                                                                                                                     |
+| Season IDs and schedule       | The documented seasons endpoint currently identifies season `8` as 2025-26 Regular Season and season `11` as 2026-27 Regular Season. The 2026-27 season metadata says `start_date=2026-12-04`; its schedule's first regular-season game is December 5, 2026 at 3:00 p.m. Eastern. The official announcement confirms that opening game and time.                   | Select the prior regular season by season metadata (`playoff=0` and regular-season identity), not by a hard-coded season ID or by preseason/playoff data. Base the roster-lock instant on the confirmed first scheduled regular-season game, not the metadata `start_date`.                                                                                                                                                         |
+| Schedule timestamp            | For the first 2026-27 game, the schedule response includes `GameDateISO8601=2026-12-05T15:00:00-05:00` and `date_time_played=2026-12-05T15:00:00Z`. The latter conflicts with the official 3:00 p.m. Eastern announcement by five hours if interpreted as UTC.                                                                                                     | The owner confirmed the lock instant as December 5, 2026, 3:00 p.m. Eastern (20:00 UTC). Represent it using `America/New_York`; do not derive it from the conflicting `date_time_played` field unless the source discrepancy is clarified.                                                                                                                                                                                          |
+| Player and game identifiers   | Player game-by-game responses include player ID, season ID, and game ID; the schedule exposes both `id` and `game_id`. The same player IDs appear in the reference player catalog. Example live records included skater `player_id=32` in game `214` (season `8`) and goalie `player_id=6` in game `213` (season `8`).                                             | Normalize source IDs as strings and use source IDs—not names, jersey numbers, or team—as identity. Use season/game/player IDs together as the player-game-stat key; verify all IDs exist before importing.                                                                                                                                                                                                                          |
+| Positions                     | The player CSV distinguishes `type` (`skater`/`goalie`), specific positions such as `C`, `LD`, `RW`, and `position_analysis` such as `F`/`D`/`G`; some `team_id` values are empty.                                                                                                                                                                                 | Map roster eligibility from a validated normalized position (`F`, `D`, or `G`) while retaining the source position/type. Do not require a current team ID to identify a player.                                                                                                                                                                                                                                                     |
+| Player-game stat fields       | Live skater logs expose fields including goals, assists, points, shots, hits, blocked shots, plus/minus, and faceoffs. Goalie logs expose saves, shots against, goals against, wins/losses, shutouts, and time played. Values may be numeric or numeric strings; absent values may be empty strings. The skater sample contains both `plusminus` and `plus_minus`. | Define a source-to-canonical field map per player type. Parse only explicitly supported values, preserve the raw source payload for diagnosis, and distinguish zero from missing/blank. Resolve duplicate/legacy fields such as `plusminus` versus `plus_minus` before relying on them for scoring.                                                                                                                                 |
+| Game finality                 | The reference dictionary defines status `1` as upcoming, `2` as in progress, `3` as final/not official, and `4` as final/official. Live schedule data for upcoming game `365` has `status=1`, `started=0`, `final=0`; a completed 2025-26 schedule record reports `status=4`, `final=1`.                                                                           | Count only records confirmed as official final (`status=4` and `final=1`), not merely a display label or a provisional final. Treat unknown or contradictory combinations as review/error cases.                                                                                                                                                                                                                                    |
+| Postponements and corrections | The static schedule contains upcoming/TBD rows, but no captured before-and-after corrected final-stat snapshots. The documented API returns current game-by-game records; the inspected documentation does not describe a revision feed or publish correction history.                                                                                             | Scheduled/non-final records provide a fixture for exclusion, but a genuine postponement and an actual correction remain unverified. Re-imports should be idempotent by `(season_id, game_id, player_id)` and retain import timestamps/raw snapshots so a changed source value can be detected and audited. Do not claim correction behavior is validated until two source snapshots or an official correction example are captured. |
+| Request limits                | The inspected reference documents endpoint shapes but no supported rate limit, service guarantee, or published polling allowance.                                                                                                                                                                                                                                  | Avoid production polling until a conservative refresh cadence is tested and the provider's usage limits/terms are confirmed. Make cadence configurable and back off on errors rather than assuming an undocumented quota.                                                                                                                                                                                                           |
+
+#### Scoring and projection check
+
+The supplied rubric was applied to the live 2025-26 regular-season aggregate statistics (season `8`), using the documented skater and goalie stat-view endpoints. This is a reproducible source snapshot check, not yet an approved production calculation. The calculation used:
+
+- Skater: `3*goals + 2*assists + 0.5*shots + 5*short_handed_goals + 3*short_handed_assists + 3*shots_blocked_by_player + 3*hits + plus_minus`.
+- Goalie: `5*wins + 10*shutouts + 0.25*saves - goals_against + 50*goals + 25*assists`.
+
+| Sample                            | Season total input                                                                                          | Calculated total |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------- | ---------------: |
+| Skater Kelly Pannek (player `23`) | 16 goals, 17 assists, 58 shots, 0 short-handed goals, 0 short-handed assists, 33 blocked shots, 7 hits, +13 |              244 |
+| Goalie Aerin Frankel (player `6`) | 19 wins, 8 shutouts, 631 saves, 31 goals against, 0 goals, 0 assists                                        |           301.75 |
+
+Across the source response's 187 skaters and 20 goalies with prior-season statistics:
+
+| Comparison                                                      |          Skaters |      Goalies |
+| --------------------------------------------------------------- | ---------------: | -----------: |
+| Median season total                                             |            128.5 |         77.5 |
+| Maximum season total                                            |            358.5 |          310 |
+| Share assigned to combined Tier 1 by the proposed global method | 39 / 187 (20.9%) | 3 / 20 (15%) |
+
+With the revised goalie values, the combined tiers contained 42, 42, 41, 41, and 41 players, respectively. Goalies are 20 of the 207 players (9.7%) with season totals and account for 3 of 42 Tier 1 assignments (7.1%). The goalie median is 0.60 times the skater median and the highest goalie total is 0.86 times the highest skater total. The revised weights remove the prior upper-tier goalie premium in this sample; no further goalie multiplier is recommended from these data.
+
+#### Confirmed deterministic tier and no-history rules
+
+The site owner approved these rules on October 5, 2026. The season-8 comparison above is a validation sample; assignments must be recomputed from the selected prior season before use.
+
+1. Calculate each eligible player's prior regular-season total using the agreed global scoring rubric.
+2. Sort players by total descending and group equal totals together.
+3. For each equal-total group, compute its 1-based midrank `r` and assign tier `1 + min(4, floor(5 * (r - 1) / N))`, where `N` is the number of players with usable totals. Tier 1 is the highest-output tier and tier 5 the lowest. This keeps equal totals together; ties may make tier sizes uneven or leave a tier empty.
+4. Mark players with no usable prior-season total as `needs_review`; exclude them from selection until the site owner supplies and approves a projection/tier. Never silently treat missing statistics as zero.
+5. Store the input season, scoring-rule version, computed total, tier, and any owner override so assignments can be reproduced and audited.
+
+#### Accepted non-blocking source risks
+
+- A historical correction example and a genuine postponed-game status are not available in the inspected snapshots. The owner accepted this evidence gap as non-blocking. Preserve the requirement to exclude non-final games, detect changed source statistics, and recalculate affected scores; monitor unknown statuses and corrections during operation rather than treating the upstream behavior as proven.
+- Source usage limits and terms remain unverified. The owner accepted this gap as non-blocking for proceeding to Phase 2; this does not establish permission or a supported request quota. Before enabling production automation, review applicable usage terms and configure conservative polling, error visibility, and backoff.
+
+**Phase 1 status:** Complete with accepted evidence gaps. The owner approved the scoring rules, revised goalie weights, December 5, 2026, 3:00 p.m. Eastern lock deadline, and quintile/midrank tier method. The scoring was applied to a 2025-26 sample, a tier comparison was calculated, and representative source fixtures were saved. Correction/postponement semantics and source usage limits remain unproven but are no longer Phase 1 blockers. Phase 2 can proceed; no application code, production data importer, or scheduled job was added as part of this spike.
+
 ### Phase 2: Scaffold the application and security foundation
 
 - Create the React/TypeScript/Vite app and Cloudflare Worker configuration.
@@ -139,6 +213,8 @@ Schema names are provisional; constraints and transaction boundaries are require
 - Add automated formatting, type-checking, and test commands.
 
 **Exit criteria:** A user can sign in, sign out, and access only their own profile; deployment secrets are not present in client assets.
+
+**Implementation status (October 5, 2026):** The repository now contains the Vite/React/TypeScript client, hosted-Supabase magic-link and self-profile flow, profile migration with RLS, CI checks, and Cloudflare static-asset configuration. Remote Supabase projects, Auth redirect allowlists, Cloudflare sites/secrets, and production deployment still require owner configuration; do not treat Phase 2 as deployed until those environment-specific steps and the RLS integration test have been verified.
 
 ### Phase 3: Build the player and site-owner administration
 

@@ -1,0 +1,73 @@
+{
+  "capturedAt": "2026-10-05",
+  "source": "HockeyTech/LeagueStat PWHL feeds, documented by PWHL-Data-Reference",
+  "referenceCommit": "937890772f351ee603afaa428814354ffdbf091d",
+  "fixtures": [
+    {
+      "case": "skater-season-projection",
+      "seasonId": "8",
+      "sourceRecord": {
+        "player_id": "23",
+        "name": "Kelly Pannek",
+        "position": "F",
+        "games_played": "30",
+        "goals": "16",
+        "assists": "17",
+        "shots": "58",
+        "plus_minus": "13",
+        "short_handed_goals": "0",
+        "short_handed_assists": "0",
+        "shots_blocked_by_player": "33",
+        "hits": "7"
+      },
+      "expectedProjection": 244
+    },
+    {
+      "case": "goalie-season-projection",
+      "seasonId": "8",
+      "sourceRecord": {
+        "player_id": "6",
+        "name": "Aerin Frankel",
+        "games_played": "26",
+        "wins": "19",
+        "shutouts": "8",
+        "saves": "631",
+        "goals_against": "31",
+        "goals": "0",
+        "assists": "0"
+      },
+      "expectedProjection": 301.75
+    },
+    {
+      "case": "scheduled-non-final-game",
+      "seasonId": "11",
+      "sourceRecord": {
+        "id": "365",
+        "game_id": "365",
+        "date_played": "2026-12-05",
+        "GameDateISO8601": "2026-12-05T15:00:00-05:00",
+        "date_time_played": "2026-12-05T15:00:00Z",
+        "status": "1",
+        "started": "0",
+        "final": "0"
+      },
+      "expectedIncludedInScoring": false
+    },
+    {
+      "case": "official-final-game",
+      "seasonId": "8",
+      "sourceRecord": {
+        "id": "210",
+        "game_id": "210",
+        "date_played": "2025-11-21",
+        "status": "4",
+        "final": "1"
+      },
+      "expectedFinality": "official"
+    }
+  ],
+  "unavailableEvidence": {
+    "correctedFinalGameBeforeAndAfter": "No revision history or before-and-after source snapshots were available during Phase 1; do not use a fabricated correction pair as source evidence.",
+    "postponedGame": "The inspected source snapshots had scheduled/TBD non-final examples but no verified postponed-game status."
+  }
+}
