@@ -225,6 +225,8 @@ The site owner approved these rules on October 5, 2026. The season-8 comparison 
 
 **Exit criteria:** A site owner can review a complete season catalog, fix player/tier data, and verify the exact scoring and cost values that managers will use.
 
+**Implementation status (October 5, 2026):** The repository now has a normalized HockeyTech JSON adapter, tested projection and midrank-tier logic, a database-backed catalog with owner-only transactional configuration/import/review/freeze functions, audit/import history, and a site-owner console. The first catalog is seeded with the verified 2026-27 / prior-season source IDs, lock instant, and Phase 1 scoring values; the owner must set all five tier costs and bootstrap their account in `site_owner_roles`. Catalog input is currently a validated JSON export uploaded by the owner. Automated live endpoint fetching and scheduled imports remain deferred until the source terms, limits, and production request cadence have been confirmed; this phase does not claim those upstream operational details are resolved.
+
 ### Phase 4: Build league creation and joining
 
 - Implement league creation with commissioner, roster size, and budget.
@@ -287,7 +289,5 @@ The site owner approved these rules on October 5, 2026. The season-8 comparison 
 
 ## Items to settle during implementation
 
-- Choose the exact tier-boundary algorithm and the owner-review workflow details.
-- Verify the upstream data source's live/final semantics, stability, rate limits, and appropriate automated refresh cadence.
-- Confirm the official regular-season start date and owner procedure for changing the global lock time.
+- Verify the upstream data source's usage terms, rate limits, and appropriate automated refresh cadence before enabling live imports.
 - Define membership removal/league deletion behavior and data retention before building commissioner controls.

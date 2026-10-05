@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
+import { SiteAdminPanel } from "./components/SiteAdminPanel";
 import { getDisplayNameError } from "./lib/profile";
 import { isSupabaseConfigured, supabase } from "./lib/supabase";
 
@@ -87,6 +88,7 @@ export default function App() {
   return (
     <Page>
       <ProfilePanel session={session} onError={setAuthError} />
+      <SiteAdminPanel userId={session.user.id} />
       {authError && (
         <p className="error" role="alert">
           {authError}

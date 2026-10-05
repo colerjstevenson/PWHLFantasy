@@ -61,14 +61,50 @@ npm test
 npm run build
 ```
 
-The database RLS integration test is in
-`supabase/tests/profile_rls.test.sql`. It can be run against a disposable local
-Supabase database with `npx supabase test db`; never run test fixtures against
-production data.
+The database RLS integration tests are in `supabase/tests/`. They can be run
+against a disposable local Supabase database with `npx supabase test db`; never
+run test fixtures against production data.
 
-## Phase 2 scope
+## Phase 3: player catalog and site-owner administration
 
-This foundation includes magic-link authentication, a self-only profile,
-versioned schema migrations, RLS, test/build tooling, and Cloudflare static
-hosting configuration. League, roster, transfer, import, and scoring features
-are intentionally deferred to their later phases.
+Apply the Phase 3 migration with the normal database migration process. The
+catalog is initially seeded for source season `11` / prior season `8`, with the
+confirmed Eastern roster-lock instant and scoring values. In the Supabase SQL
+editor, assign the first site owner using the authenticated user's UUID:
+
+```sql
+insert into public.site_owner_roles (user_id)
+values ('<authenticated-user-uuid>');
+```
+
+The owner role table has no browser write policy; bootstrap and later owner-role
+changes must be performed by a trusted database administrator. Sign in, then
+use the **Site owner** console to set all five tier costs, review scoring and
+lock settings, and upload a source export.
+
+The import JSON is an envelope with `season`, `players`, and `seasonStats`
+properties. `season` contains `id`, `name`, and `priorSeasonId`. Player entries
+use source fields such as `player_id`, `name`, `team_id`, `team_name`, `type`,
+`position`, and/or `position_analysis`. Season-stat entries use `player_id` and
+the documented HockeyTech aggregate fields. Numeric strings are normalized;
+blank or absent required stats stay incomplete and require owner review. The
+adapter also accepts already normalized camel-case IDs and nested `stats`
+objects.
+
+Imports and configuration changes are transactional and authorized in
+Postgres. Only authenticated users can read the shared catalog; import history
+and audit records are visible only to site owners. Scoring values, tiers, and
+costs are frozen by database checks at the Eastern roster-lock instant.
+Scoring changes create versioned records and configuration changes are audited.
+After lock, the owner can create an immutable catalog snapshot from the console,
+provided all five costs are set and all imported player assignments are
+reviewed.
+Live upstream fetching and scheduled refresh are not enabled until the
+documented source usage terms and request limits are confirmed.
+
+## Phase 2 foundation
+
+The initial foundation includes magic-link authentication, a self-only
+profile, versioned schema migrations, RLS, test/build tooling, and Cloudflare
+static hosting configuration. League, roster, and transfer features remain
+deferred to their later phases.
