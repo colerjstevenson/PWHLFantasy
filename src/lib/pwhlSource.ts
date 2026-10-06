@@ -248,7 +248,8 @@ export async function fetchSourceCatalog(
     try {
       response = await fetch(url, {
         headers: { accept: "application/json" },
-        redirect: "error",
+        // Workers reject redirect: "error"; readSource rejects any 3xx as non-ok.
+        redirect: "manual",
         signal: AbortSignal.timeout(30_000),
       });
     } catch (caught) {
