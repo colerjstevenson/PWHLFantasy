@@ -167,6 +167,34 @@ This is a research spike only; no application or production importer has been bu
 | Postponements and corrections | The static schedule contains upcoming/TBD rows, but no captured before-and-after corrected final-stat snapshots. The documented API returns current game-by-game records; the inspected documentation does not describe a revision feed or publish correction history.                                                                                             | Scheduled/non-final records provide a fixture for exclusion, but a genuine postponement and an actual correction remain unverified. Re-imports should be idempotent by `(season_id, game_id, player_id)` and retain import timestamps/raw snapshots so a changed source value can be detected and audited. Do not claim correction behavior is validated until two source snapshots or an official correction example are captured. |
 | Request limits                | The inspected reference documents endpoint shapes but no supported rate limit, service guarantee, or published polling allowance.                                                                                                                                                                                                                                  | Avoid production polling until a conservative refresh cadence is tested and the provider's usage limits/terms are confirmed. Make cadence configurable and back off on errors rather than assuming an undocumented quota.                                                                                                                                                                                                           |
 
+#### Catalog source integration update (October 5, 2026)
+
+The site owner subsequently confirmed that source usage is permitted; the
+permission prerequisite is closed on that confirmation. A numeric request
+quota and provider service/completeness guarantee remain unknown. Catalog
+requests are manual, owner-authorized, sequential and bounded, with no
+scheduled catalog polling or automatic retries.
+
+The Worker now supports fetch-only catalog previews and the owner console
+requires review/confirmation before using the existing catalog import.
+JSON upload remains available. The validated endpoint/field map, deployment
+variables, request bounds and completeness limitations are recorded in
+[README.md](README.md#manual-source-catalog-preview). Reduced representative
+responses are in [catalog-source-excerpts.json](fixtures/catalog-source-excerpts.json).
+
+Sparse checks confirmed season-8 aggregate counts (187 skaters / 20 goalies),
+required scoring fields, contiguous ranks, and shared IDs with the historical
+Boston roster. ModuleKit appends a nested staff array that must not be treated
+as players. The sampled season-11 Boston roster is empty (`[[]]`); the adapter
+now discards any partial upcoming-season roster set and falls back to the full
+prior-season teams/rosters, labeled in the preview and gated on explicit owner
+confirmation. This temporary catalog can omit new or expansion teams and
+players and does not claim they are active for the upcoming season. No other
+current team rosters were probed. Published total-record counts were absent:
+the preview discloses that upstream omissions cannot be ruled out and requires
+owner coverage confirmation. This is not evidence of a guaranteed complete
+production catalog.
+
 #### Scoring and projection check
 
 The supplied rubric was applied to the live 2025-26 regular-season aggregate statistics (season `8`), using the documented skater and goalie stat-view endpoints. This is a reproducible source snapshot check, not yet an approved production calculation. The calculation used:
@@ -202,7 +230,7 @@ The site owner approved these rules on October 5, 2026. The season-8 comparison 
 #### Accepted non-blocking source risks
 
 - A historical correction example and a genuine postponed-game status are not available in the inspected snapshots. The owner accepted this evidence gap as non-blocking. Preserve the requirement to exclude non-final games, detect changed source statistics, and recalculate affected scores; monitor unknown statuses and corrections during operation rather than treating the upstream behavior as proven.
-- Source usage limits and terms remain unverified. The owner accepted this gap as non-blocking for proceeding to Phase 2; this does not establish permission or a supported request quota. Before enabling production automation, review applicable usage terms and configure conservative polling, error visibility, and backoff.
+- At the original Phase 1 decision, source usage limits and terms were unverified. The owner has since confirmed usage is permitted (see the catalog integration update above). This does not establish a supported numeric request quota; scheduled catalog automation remains disabled.
 
 **Phase 1 status:** Complete with accepted evidence gaps. The owner approved the scoring rules, revised goalie weights, December 5, 2026, 3:00 p.m. Eastern lock deadline, and quintile/midrank tier method. The scoring was applied to a 2025-26 sample, a tier comparison was calculated, and representative source fixtures were saved. Correction/postponement semantics and source usage limits remain unproven but are no longer Phase 1 blockers. Phase 2 can proceed; no application code, production data importer, or scheduled job was added as part of this spike.
 
@@ -226,7 +254,7 @@ The site owner approved these rules on October 5, 2026. The season-8 comparison 
 
 **Exit criteria:** A site owner can review a complete season catalog, fix player/tier data, and verify the exact scoring and cost values that managers will use.
 
-**Implementation status (October 5, 2026):** The repository now has a normalized HockeyTech JSON adapter, tested projection and midrank-tier logic, a database-backed catalog with owner-only transactional configuration/import/review/freeze functions, audit/import history, and a site-owner console. The first catalog is seeded with the verified 2026-27 / prior-season source IDs, lock instant, and Phase 1 scoring values; the owner must set all five tier costs and bootstrap their account in `site_owner_roles`. Catalog input is currently a validated JSON export uploaded by the owner. Automated live endpoint fetching and scheduled imports remain deferred until the source terms, limits, and production request cadence have been confirmed; this phase does not claim those upstream operational details are resolved.
+**Implementation status (October 5, 2026):** The repository now has a normalized HockeyTech JSON adapter, tested projection and midrank-tier logic, a database-backed catalog with owner-only transactional configuration/import/review/freeze functions, audit/import history, and a site-owner console. The first catalog is seeded with the verified 2026-27 / prior-season source IDs, lock instant, and Phase 1 scoring values; the owner must set all five tier costs and bootstrap their account in `site_owner_roles`. Catalog input supports a validated JSON export or a manual Worker fetch with preview and owner confirmation. Usage permission is owner-confirmed; numeric limits and upstream completeness guarantees remain unverified. Scheduled catalog polling is not enabled. When upcoming-season rosters are empty, the manual fetch uses the prior season's roster set and clearly requires the owner to confirm that temporary snapshot.
 
 ### Phase 4: Build league creation and joining
 
@@ -302,5 +330,5 @@ The site owner approved these rules on October 5, 2026. The season-8 comparison 
 
 ## Items to settle during implementation
 
-- Verify the upstream data source's usage terms, rate limits, and appropriate automated refresh cadence before enabling live imports.
+- Source usage permission is owner-confirmed. Establish numeric limits and an appropriate refresh cadence before enabling scheduled imports; keep catalog fetching manual.
 - Define commissioner handoff and league deletion/data-retention behavior before adding those controls.

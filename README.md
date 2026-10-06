@@ -123,8 +123,111 @@ Scoring changes create versioned records and configuration changes are audited.
 After lock, the owner can create an immutable catalog snapshot from the console,
 provided all five costs are set and all imported player assignments are
 reviewed.
-Live upstream fetching and scheduled refresh are not enabled until the
-documented source usage terms and request limits are confirmed.
+
+### Manual source catalog preview
+
+The site owner confirmed on October 5, 2026 that automated third-party source
+usage is permitted. No numeric quota or service guarantee has been established.
+Catalog fetching is **owner-triggered only**: no cron, automatic retry, or
+background refresh. The existing scheduled **game** importer is separate and
+still disabled by `PWHL_AUTOMATION_ENABLED=false`.
+
+Configure `PWHL_FEED_KEY` as a Worker secret using
+`npx wrangler secret put PWHL_FEED_KEY` (add `--name pwhl-fantasy-staging` for
+staging). Use the provider-approved feed credential; do not put it in the
+browser, a `VITE_` variable, or version control. The Worker verifies the caller's
+Supabase session and `is_site_owner` using `SUPABASE_URL` and
+`SUPABASE_ANON_KEY` (or the existing `VITE_SUPABASE_ANON_KEY` Worker variable).
+This path does not use the service-role credential. Set
+`PWHL_CATALOG_ENABLED=false` to disable manual fetching.
+
+In the owner console, select a regular-season source ID and click **Fetch
+source catalog preview**. The Worker selects the immediately preceding
+regular season from metadata, fetches every team's roster, then fetches the
+two prior-season aggregate tables. It returns a preview, never a database
+write. Review per-team counts, player types, and players without history,
+check the confirmation box, then use **Save settings and import**. This reuses
+the existing owner-authorized transactional import, scoring, tier rules and
+roster-lock enforcement. Keep JSON upload as the fallback.
+
+If any target-season team returns a valid but empty roster, the Worker discards
+the partial target-season roster set and fetches all teams and rosters from the
+prior regular season instead. The preview identifies that roster season and
+requires explicit confirmation that the temporary catalog may omit expansion
+teams and new signings. Team, player membership and active status are therefore
+last-season values, not claims about upcoming-season eligibility. Fetch the
+target season again after its rosters are published to replace the temporary
+roster snapshot.
+
+Malformed, mismatched, capped, or missing-field responses do not produce a
+usable preview and leave the catalog unchanged. An empty upcoming-season roster
+triggers the documented prior-season roster fallback; if that roster set is
+also empty, fetching fails visibly. An unsuccessful new fetch clears an older
+preview so it cannot be imported by mistake. New rostered players absent from
+the prior-season stat tables retain the existing no-history review behavior;
+missing scoring fields in an existing source stat row abort fetching rather
+than becoming zero. HTTP 429 and other failures are visible and are not
+automatically retried. Fetch-only failures are reported in the console and
+Worker logs, not recorded as database import attempts.
+
+For local fetch testing, build the assets, configure the Worker variables and
+secret in ignored `.dev.vars`, and run `npx wrangler dev --port 8787`. Vite
+proxies `/api/catalog` to that Worker when using `npm run dev`. JSON upload
+continues to work without a local Worker.
+
+#### Validated endpoint/data map
+
+Base: `https://lscluster.hockeytech.com/feed/index.php`. All calls are HTTPS GET
+with `client_code=pwhl` and the configured `key`. Request URL construction is
+fixed in the Worker adapter; owners cannot supply an arbitrary upstream URL.
+The [PWHL-Data-Reference](https://github.com/IsabelleLefebvre97/PWHL-Data-Reference)
+is an unofficial technical guide, not a supported API contract.
+
+| Data          | Request selectors                                                                                                                                                     | Response shape and mapping                                                                                                                                                                                                                                                                                                                                           |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Seasons       | `feed=modulekit&view=seasons`                                                                                                                                         | `SiteKit.Seasons[]`: `season_id`, `season_name`, `playoff`, `start_date`, `end_date`. Require regular-season name and `playoff=0`; choose the latest regular season starting before the selected season starts, require it to end before that start date, and do not infer season relationships from numeric IDs.                                                    |
+| Teams         | `feed=modulekit&view=teamsbyseason&season_id=<target>`                                                                                                                | `SiteKit.Teamsbyseason[]`: `id`, `name`. Require unique IDs and matching response season.                                                                                                                                                                                                                                                                            |
+| Players       | `feed=modulekit&view=roster&season_id=<target>&team_id=<each team>`; if any target roster is valid but empty, discard that set and fetch teams/rosters for `<prior>`. | `SiteKit.Roster[]`: `player_id`/`id`, `name`, `team_id`, `position`, `active`. A final nested array contains staff, not players. Require all rosters in the chosen season to be nonempty, active status explicit, player/team IDs matching and positions supported; team display name comes from that season's teams response. Preview identifies the roster season. |
+| Prior skaters | `feed=statviewfeed&view=players&season=<prior>&position=skaters&sort=points`                                                                                          | Bare-parenthesized JSON array: `[0].sections[0].data[].row`; cross-check `prop.name.playerLink` against `row.player_id`. Map `goals`, `assists`, `shots`, `short_handed_goals`, `short_handed_assists`, `shots_blocked_by_player` → `blocked_shots`, `hits`, `plus_minus`.                                                                                           |
+| Prior goalies | Same aggregate endpoint with `position=goalies&sort=gaa&qualified=all`                                                                                                | Same shape/ID checks. Map `goals`, `assists`, `wins`, `shutouts`, `saves`, `goals_against`. Never infer goalie goals/assists as zero.                                                                                                                                                                                                                                |
+
+Aggregate calls also specify `team=all`, `rookies=0`, `statsType=standard`,
+`rosterstatus=undefined`, `site_id=0`, `league_id=1`, `first=0`, `limit=500`,
+`lang=en`, `division=-1`, `conference=-1`, and `qualified=all`. The adapter
+accepts plain JSON, bare parentheses and a named JSONP callback without
+executing JavaScript. Responses have a 30-second timeout and a streamed 5 MB
+limit; redirects fail. Requests are sequential, with a maximum of 32 teams in
+either roster season and an overall cap of 40 upstream requests per owner
+action, including the fallback roster set. The request sequence stops on the
+first error. There is no assumed requests-per-second allowance.
+
+Sparse checks on October 5, 2026 observed 187 skaters and 20 goalies in season
+`8`, with contiguous ranks and all scoring fields, and 12 teams in season
+`11`. The season-8 Boston roster contained 27 players plus a nested staff
+array; 24 skaters and 3 goalies shared IDs with the aggregate feeds.
+The sampled season-11 Boston roster returned `[[]]`. The adapter now uses the
+complete prior-season team/roster set in this case and explicitly labels the
+result as a temporary roster fallback. It has not probed other current-season
+rosters; the source may publish partial target-season rosters, so a fallback
+can omit new or expansion teams and players. Representative, reduced field
+excerpts are in `fixtures/catalog-source-excerpts.json`; they are not complete
+catalogs.
+
+Completeness checks reject duplicate IDs, missing/reordered ranks, multiple
+unexpected tables/sections, responses reaching the 500-row cap, missing teams,
+missing scoring fields, player-type conflicts, and a join with no shared IDs.
+If both target and prior-season rosters are empty, fetching fails. Historical
+players no longer in the chosen roster season are excluded.
+The feeds do **not** publish a total record count in the observed responses:
+these checks cannot prove that the provider has not omitted rows or entire
+teams. The preview explicitly discloses that limitation and requires owner
+coverage confirmation. Do not claim a guaranteed complete provider catalog
+or enable unattended catalog imports on this evidence.
+
+Provider attribution is displayed with fetched previews: Official statistics
+provided by Professional Women's Hockey League;
+[LeagueStat](http://leaguestat.com);
+[Powered by HockeyTech.com](http://hockeytech.com).
 
 ## Phase 2 foundation
 

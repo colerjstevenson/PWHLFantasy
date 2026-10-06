@@ -1,0 +1,80 @@
+{
+  "capturedAt": "2026-10-05",
+  "source": "https://lscluster.hockeytech.com/feed/index.php",
+  "description": "Selected fields from sparse manual requests, not complete responses or importable catalogs. Aggregate responses had bare parentheses around JSON.",
+  "observedCounts": { "skaters": 187, "goalies": 20, "season11Teams": 12, "season8BostonPlayers": 27 },
+  "seasons": {
+    "SiteKit": {
+      "Seasons": [
+        { "season_id": "11", "season_name": "2026-27 Regular Season", "playoff": "0", "start_date": "2026-12-04", "end_date": "2027-04-19" },
+        { "season_id": "10", "season_name": "2026-27 Pre-Season", "playoff": "0", "start_date": "2026-10-01", "end_date": "2026-11-30" },
+        { "season_id": "9", "season_name": "2026 Playoffs", "playoff": "1", "start_date": "2026-04-28", "end_date": "2026-05-28" },
+        { "season_id": "8", "season_name": "2025-26 Regular Season", "playoff": "0", "start_date": "2025-11-21", "end_date": "2026-04-27" }
+      ]
+    }
+  },
+  "teams": {
+    "SiteKit": {
+      "Parameters": { "view": "teamsbyseason", "season_id": 11 },
+      "Teamsbyseason": [{ "id": "1", "name": "Boston Fleet" }]
+    }
+  },
+  "emptyCurrentRoster": {
+    "SiteKit": {
+      "Parameters": { "view": "roster", "season_id": 11, "team_id": "1" },
+      "Roster": [[]]
+    }
+  },
+  "historicalRoster": {
+    "SiteKit": {
+      "Parameters": { "view": "roster", "season_id": 8, "team_id": "1" },
+      "Roster": [
+        { "id": "12", "player_id": "12", "name": "Megan Keller", "team_id": "1", "team_name": "Boston Fleet", "position": "LD", "active": "1" },
+        { "id": "6", "player_id": "6", "name": "Aerin Frankel", "team_id": "1", "team_name": "Boston Fleet", "position": "G", "active": "1" },
+        [{ "team_id": "1", "role_id": "4", "role": "General Manager" }, { "team_id": "1", "role_id": "2", "role": "Head Coach" }]
+      ]
+    }
+  },
+  "skaters": [
+    {
+      "sections": [
+        {
+          "data": [
+            {
+              "prop": { "name": { "playerLink": "23" } },
+              "row": {
+                "player_id": "23", "name": "Kelly Pannek", "active": "1", "position": "F", "rank": 1,
+                "goals": "16", "assists": "17", "shots": "58", "short_handed_goals": "0",
+                "short_handed_assists": "0", "shots_blocked_by_player": "33", "hits": "7", "plus_minus": "13"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "goalies": [
+    {
+      "sections": [
+        {
+          "data": [
+            {
+              "prop": { "name": { "playerLink": "28" } },
+              "row": {
+                "player_id": "28", "name": "Ann-Ren\u00e9e Desbiens", "active": "1", "rank": 1,
+                "wins": "19", "shutouts": "7", "saves": "592", "goals_against": "28", "goals": "0", "assists": "1"
+              }
+            },
+            {
+              "prop": { "name": { "playerLink": "6" } },
+              "row": {
+                "player_id": "6", "name": "Aerin Frankel", "active": "1", "rank": 2,
+                "wins": "19", "shutouts": "8", "saves": "631", "goals_against": "31", "goals": "0", "assists": "0"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

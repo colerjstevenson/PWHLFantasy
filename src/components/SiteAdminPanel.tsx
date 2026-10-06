@@ -114,6 +114,13 @@ export function SiteAdminPanel({ userId }: Props) {
   const [players, setPlayers] = useState<CatalogPlayer[]>([]);
   const [runs, setRuns] = useState<ImportRun[]>([]);
   const [payload, setPayload] = useState<PwhlImportPayload | null>(null);
+  const [sourceWarning, setSourceWarning] = useState<string | null>(null);
+  const [sourceRoster, setSourceRoster] = useState<{
+    id: string;
+    name: string;
+    isPriorSeasonFallback: boolean;
+  } | null>(null);
+  const [sourceConfirmed, setSourceConfirmed] = useState(false);
   const [gamePayload, setGamePayload] = useState<FinalGameImportPayload | null>(
     null,
   );
@@ -300,6 +307,9 @@ export function SiteAdminPanel({ userId }: Props) {
     const input = event.currentTarget;
     const file = input.files?.[0];
     setPayload(null);
+    setSourceWarning(null);
+    setSourceRoster(null);
+    setSourceConfirmed(false);
     setError(null);
     setNotice(null);
     if (!file) return;
@@ -320,8 +330,88 @@ export function SiteAdminPanel({ userId }: Props) {
     }
   }
 
+  async function fetchCatalogPreview() {
+    if (!supabase) return;
+    setBusy(true);
+    setPayload(null);
+    setSourceWarning(null);
+    setSourceRoster(null);
+    setSourceConfirmed(false);
+    setError(null);
+    setNotice(null);
+    try {
+      const { data, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) throw sessionError;
+      if (!data.session) throw new Error("Sign in again to fetch the catalog.");
+      const response = await fetch("/api/catalog/preview", {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${data.session.access_token}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ seasonId: seasonId.trim() }),
+      });
+      const result: unknown = await response.json();
+      if (!result || typeof result !== "object") {
+        throw new Error("The catalog preview returned an invalid response.");
+      }
+      if (!response.ok) {
+        throw new Error(
+          "error" in result && typeof result.error === "string"
+            ? result.error
+            : `Catalog fetch failed with HTTP ${response.status}.`,
+        );
+      }
+      if (
+        !("payload" in result) ||
+        !("warning" in result) ||
+        typeof result.warning !== "string" ||
+        !("rosterSeasonId" in result) ||
+        typeof result.rosterSeasonId !== "string" ||
+        !("rosterSeasonName" in result) ||
+        typeof result.rosterSeasonName !== "string" ||
+        !("usedPriorRosterFallback" in result) ||
+        typeof result.usedPriorRosterFallback !== "boolean"
+      ) {
+        throw new Error("The catalog preview returned an invalid response.");
+      }
+      const normalized = parsePwhlImport(result.payload);
+      if (normalized.seasonId !== seasonId.trim()) {
+        throw new Error("The preview does not match the selected season.");
+      }
+      setPayload(normalized);
+      setSeasonName(normalized.seasonName);
+      setPriorSeasonId(normalized.priorSeasonId);
+      setSourceWarning(result.warning);
+      setSourceRoster({
+        id: result.rosterSeasonId,
+        name: result.rosterSeasonName,
+        isPriorSeasonFallback: result.usedPriorRosterFallback,
+      });
+      setNotice(
+        "Source fetched for preview only. The catalog has not changed.",
+      );
+    } catch (caught) {
+      setError(
+        `${getErrorMessage(caught)} No catalog data was imported. JSON upload remains available.`,
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function importCatalog() {
     if (!supabase || !payload) return;
+    if (
+      payload.seasonId !== seasonId.trim() ||
+      payload.priorSeasonId !== priorSeasonId.trim() ||
+      (sourceWarning !== null && !sourceConfirmed)
+    ) {
+      setError(
+        "Confirm a preview matching the selected season and prior season before importing.",
+      );
+      return;
+    }
     setBusy(true);
     setError(null);
     setNotice(null);
@@ -352,6 +442,9 @@ export function SiteAdminPanel({ userId }: Props) {
         throw importError;
       }
       setPayload(null);
+      setSourceWarning(null);
+      setSourceRoster(null);
+      setSourceConfirmed(false);
       await loadCatalog(seasonId.trim());
       setNotice("Season catalog imported successfully.");
     } catch (caught) {
@@ -564,7 +657,7 @@ export function SiteAdminPanel({ userId }: Props) {
               value={seasonId}
               onChange={(event) => setSeasonId(event.target.value)}
               required
-              disabled={frozenAt !== null}
+              disabled={busy || frozenAt !== null}
             />
           </label>
           <label>
@@ -654,6 +747,20 @@ export function SiteAdminPanel({ userId }: Props) {
       <div className="admin-section">
         <h3>Import season catalog</h3>
         <p>
+          Fetch the selected regular season manually from HockeyTech. Its
+          metadata selects the prior regular season; every team roster and both
+          prior-season stat feeds must pass validation before a preview is
+          shown. Fetching does not save settings or import players. No catalog
+          polling or automatic retries are enabled.
+        </p>
+        <button
+          type="button"
+          disabled={busy || lockHasPassed || frozenAt !== null}
+          onClick={() => void fetchCatalogPreview()}
+        >
+          {busy ? "Working…" : "Fetch source catalog preview"}
+        </button>
+        <p>
           Upload a JSON export containing <code>season</code>,{" "}
           <code>players</code>, and <code>seasonStats</code>. Player IDs are
           preserved as source IDs; missing or blank stats are flagged for owner
@@ -679,9 +786,78 @@ export function SiteAdminPanel({ userId }: Props) {
               {payload.seasonStats.filter((stat) => !stat.complete).length} stat
               records have missing fields; those assignments will need review.
             </p>
+            <p>
+              {payload.seasonName}; prior regular season {payload.priorSeasonId}
+              .{" "}
+              {
+                payload.players.filter(
+                  (player) => player.playerType === "skater",
+                ).length
+              }{" "}
+              skaters and{" "}
+              {
+                payload.players.filter(
+                  (player) => player.playerType === "goalie",
+                ).length
+              }{" "}
+              goalies.
+            </p>
+            {sourceRoster && (
+              <p
+                role={sourceRoster.isPriorSeasonFallback ? "alert" : undefined}
+              >
+                {sourceRoster.isPriorSeasonFallback
+                  ? `Temporary roster fallback: using ${sourceRoster.name} rosters (season ${sourceRoster.id}) because current-season rosters are not yet published. Teams, player membership, and active status reflect last season; new teams and players may be absent.`
+                  : `Roster membership and active status are from ${sourceRoster.name} (season ${sourceRoster.id}).`}
+              </p>
+            )}
+            <ul>
+              {Array.from(
+                new Set(payload.players.map((player) => player.teamName)),
+              ).map((team) => (
+                <li key={team ?? "unassigned"}>
+                  {team ?? "Unassigned"}:{" "}
+                  {
+                    payload.players.filter((player) => player.teamName === team)
+                      .length
+                  }{" "}
+                  players
+                </li>
+              ))}
+            </ul>
+            {sourceWarning && (
+              <>
+                <p>{sourceWarning}</p>
+                <p className="fine-print">
+                  Official statistics provided by Professional Women&apos;s
+                  Hockey League. <a href="http://leaguestat.com">LeagueStat</a>;{" "}
+                  <a href="http://hockeytech.com">Powered by HockeyTech.com</a>.
+                </p>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={sourceConfirmed}
+                    onChange={(event) =>
+                      setSourceConfirmed(event.target.checked)
+                    }
+                    disabled={busy}
+                  />
+                  {sourceRoster?.isPriorSeasonFallback
+                    ? "I understand these are last-season rosters and may omit upcoming-season teams and players; I have reviewed coverage and confirm this temporary catalog import."
+                    : "I have reviewed team coverage and players without history, and confirm this catalog import."}
+                </label>
+              </>
+            )}
             <button
               type="button"
-              disabled={busy || lockHasPassed || frozenAt !== null}
+              disabled={
+                busy ||
+                lockHasPassed ||
+                frozenAt !== null ||
+                payload.seasonId !== seasonId.trim() ||
+                payload.priorSeasonId !== priorSeasonId.trim() ||
+                (sourceWarning !== null && !sourceConfirmed)
+              }
               onClick={() => void importCatalog()}
             >
               {busy ? "Importing…" : "Save settings and import"}
