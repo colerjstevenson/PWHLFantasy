@@ -73,6 +73,9 @@ before its roster-lock deadline. Creation atomically creates the commissioner
 membership, fantasy team, and first invitation. Roster sizes must be at least
 six to fit the required position minimums.
 
+League deadlines and transfer timestamps display in Eastern Time with the
+applicable daylight or standard time abbreviation.
+
 Invitation tokens are generated in the browser using cryptographic randomness;
 only their SHA-256 hashes are stored in Postgres. A commissioner can copy the
 new link, rotate it to invalidate the old one, or close it early. Invites stop

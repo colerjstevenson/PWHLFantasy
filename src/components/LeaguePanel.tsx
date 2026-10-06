@@ -16,6 +16,7 @@ import {
   clearLeagueInviteFromUrl,
 } from "../lib/league";
 import { supabase } from "../lib/supabase";
+import { formatEastern } from "../lib/dates";
 import { RosterPanel } from "./RosterPanel";
 import { StandingsPanel } from "./StandingsPanel";
 
@@ -50,18 +51,6 @@ function errorMessage(error: unknown): string {
   return error instanceof Error
     ? error.message
     : "The league operation failed.";
-}
-
-function formatLockDate(value: string): string {
-  return new Intl.DateTimeFormat(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    timeZone: "America/New_York",
-    timeZoneName: "short",
-  }).format(new Date(value));
 }
 
 export function LeaguePanel({ userId, inviteToken }: Props) {
@@ -437,7 +426,7 @@ export function LeaguePanel({ userId, inviteToken }: Props) {
             <>
               <p className="fine-print">
                 {season.name} · invitation and roster setup close at{" "}
-                {formatLockDate(season.roster_lock_at)}.
+                {formatEastern(season.roster_lock_at)}.
               </p>
               <form onSubmit={createLeague}>
                 <label htmlFor="league-name">League name</label>

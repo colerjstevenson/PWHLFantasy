@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { assessRoster, type RosterPlayer } from "../lib/roster";
 import { supabase } from "../lib/supabase";
+import { formatEastern } from "../lib/dates";
 
 type TransferRecord = {
   id: string;
@@ -122,15 +123,6 @@ function parseTransferState(value: unknown): TransferState {
     pending,
     history: parsedHistory,
   };
-}
-
-function formatEastern(value: string): string {
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "America/New_York",
-    timeZoneName: "short",
-  }).format(new Date(value));
 }
 
 function errorMessage(error: unknown): string {
