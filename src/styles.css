@@ -145,6 +145,111 @@ input {
   border-top: 1px solid rgb(219 232 244 / 13%);
 }
 
+.transfer-workspace {
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px solid rgb(219 232 244 / 13%);
+}
+
+.transfer-workspace h3,
+.transfer-workspace h4 {
+  margin: 0 0 12px;
+}
+
+.transfer-workspace .section-heading p {
+  max-width: 720px;
+  line-height: 1.5;
+}
+
+.transfer-workspace select {
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 1px solid #496070;
+  border-radius: 8px;
+  background: #0b1725;
+  color: white;
+}
+
+.lock-callout,
+.pending-transfer {
+  padding: 14px;
+  border: 1px solid rgb(131 239 206 / 20%);
+  border-radius: 10px;
+  background: rgb(131 239 206 / 6%);
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.pending-transfer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  color: #f4f7fb;
+}
+
+.pending-transfer p {
+  margin: 6px 0 0;
+  color: var(--muted);
+}
+
+.pending-transfer button {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+.transfer-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: end;
+  gap: 12px;
+  margin: 16px 0 24px;
+}
+
+.transfer-form label {
+  display: grid;
+  gap: 7px;
+}
+
+.transfer-form ul {
+  grid-column: 1 / -1;
+}
+
+.transfer-preview {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 12px;
+  border-radius: 9px;
+  background: rgb(131 239 206 / 6%);
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.transfer-form button {
+  margin: 0;
+}
+
+.competition-status,
+.transfer-history {
+  margin-top: 24px;
+}
+
+.competition-status h4,
+.transfer-history h4 {
+  margin-bottom: 12px;
+}
+
+.transfer-history .member-list small {
+  text-transform: none;
+}
+
+.transfer-workspace .roster-warning ul {
+  margin: 10px 0;
+  padding-left: 22px;
+  line-height: 1.5;
+}
+
 .roster-workspace h3,
 .roster-workspace h4 {
   margin: 0 0 12px;
@@ -830,6 +935,20 @@ code {
 
   .roster-workspace .section-heading > button {
     width: 100%;
+  }
+
+  .transfer-form {
+    grid-template-columns: 1fr;
+  }
+
+  .transfer-form button,
+  .pending-transfer button {
+    width: 100%;
+  }
+
+  .pending-transfer {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .roster-summary {

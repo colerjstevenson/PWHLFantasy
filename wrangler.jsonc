@@ -1,14 +1,22 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "pwhl-fantasy",
+  "main": "src/worker.ts",
   "compatibility_date": "2026-10-05",
-   "vars": {
+  "vars": {
     "VITE_SUPABASE_ANON_KEY": "sb_publishable_o8xeL22C5hMqFAYl0S91sA_-w6Krf7v",
-    "VITE_SUPABASE_URL": "https://neauhasecrdldimxwmnv.supabase.co"
+    "VITE_SUPABASE_URL": "https://neauhasecrdldimxwmnv.supabase.co",
+    "SUPABASE_URL": "https://neauhasecrdldimxwmnv.supabase.co",
+    "PWHL_AUTOMATION_ENABLED": "false",
+    "PWHL_SEASON_ID": "11",
   },
   "assets": {
     "directory": "./dist",
+    "binding": "ASSETS",
     "not_found_handling": "single-page-application",
+  },
+  "triggers": {
+    "crons": ["0 10 * * *"],
   },
   "observability": {
     "enabled": true,

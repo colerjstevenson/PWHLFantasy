@@ -6,6 +6,7 @@ import {
   type RosterPosition,
 } from "../lib/roster";
 import { supabase } from "../lib/supabase";
+import { TransferPanel } from "./TransferPanel";
 
 type League = {
   id: string;
@@ -55,6 +56,7 @@ export function RosterPanel({ league, userId }: Props) {
   );
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [locked, setLocked] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -65,6 +67,17 @@ export function RosterPanel({ league, userId }: Props) {
         budget: Number(league.budget),
       }),
     [draftIds, league.budget, league.roster_size, players],
+  );
+
+  const updateLockState = useCallback(
+    (isLocked: boolean, playerIds: string[]) => {
+      setLocked(isLocked);
+      if (isLocked) {
+        setSavedIds(playerIds);
+        setDraftIds(playerIds);
+      }
+    },
+    [],
   );
 
   const loadRoster = useCallback(async () => {
@@ -82,29 +95,43 @@ export function RosterPanel({ league, userId }: Props) {
       if (!teamResult.data) throw new Error("Your league team was not found.");
       const nextTeamId = teamResult.data.id;
 
-      const [playerResult, assignmentResult, costResult, rosterResult] =
-        await Promise.all([
-          supabase
-            .from("players")
-            .select("id, name, team_name, position, active")
-            .order("name"),
-          supabase
-            .from("player_season_assignments")
-            .select("player_id, tier, tier_override, status")
-            .eq("season_id", league.season_id),
-          supabase
-            .from("tier_costs")
-            .select("tier, cost")
-            .eq("season_id", league.season_id),
-          supabase
-            .from("fantasy_roster_players")
-            .select("player_id")
-            .eq("team_id", nextTeamId),
-        ]);
+      const [
+        playerResult,
+        assignmentResult,
+        costResult,
+        rosterResult,
+        seasonResult,
+      ] = await Promise.all([
+        supabase
+          .from("players")
+          .select("id, name, team_name, position, active")
+          .order("name"),
+        supabase
+          .from("player_season_assignments")
+          .select("player_id, tier, tier_override, status")
+          .eq("season_id", league.season_id),
+        supabase
+          .from("tier_costs")
+          .select("tier, cost")
+          .eq("season_id", league.season_id),
+        supabase
+          .from("fantasy_roster_players")
+          .select("player_id")
+          .eq("team_id", nextTeamId),
+        supabase
+          .from("catalog_seasons")
+          .select("roster_lock_at")
+          .eq("id", league.season_id)
+          .single(),
+      ]);
       if (playerResult.error) throw playerResult.error;
       if (assignmentResult.error) throw assignmentResult.error;
       if (costResult.error) throw costResult.error;
       if (rosterResult.error) throw rosterResult.error;
+      if (seasonResult.error) throw seasonResult.error;
+
+      const nextLocked =
+        new Date(seasonResult.data.roster_lock_at).getTime() <= Date.now();
 
       const assignments = new Map(
         ((assignmentResult.data ?? []) as Assignment[]).map((assignment) => [
@@ -139,7 +166,7 @@ export function RosterPanel({ league, userId }: Props) {
       let initialDraft = currentSavedIds;
       try {
         const storedDraft = window.localStorage.getItem(key);
-        if (storedDraft !== null) {
+        if (!nextLocked && storedDraft !== null) {
           const parsed: unknown = JSON.parse(storedDraft);
           if (
             !Array.isArray(parsed) ||
@@ -156,6 +183,7 @@ export function RosterPanel({ league, userId }: Props) {
       }
 
       setTeamId(nextTeamId);
+      setLocked(nextLocked);
       setPlayers(catalog);
       setSavedIds(currentSavedIds);
       setDraftIds(initialDraft);
@@ -201,7 +229,7 @@ export function RosterPanel({ league, userId }: Props) {
   }
 
   function togglePlayer(player: RosterPlayer) {
-    if (!player.active || !player.ready) return;
+    if (locked || !player.active || !player.ready) return;
     updateDraft(
       draftIds.includes(player.id)
         ? draftIds.filter((id) => id !== player.id)
@@ -210,7 +238,7 @@ export function RosterPanel({ league, userId }: Props) {
   }
 
   async function saveRoster() {
-    if (!supabase || !teamId || !assessment.valid) return;
+    if (locked || !supabase || !teamId || !assessment.valid) return;
     setSaving(true);
     setError(null);
     setNotice(null);
@@ -256,11 +284,15 @@ export function RosterPanel({ league, userId }: Props) {
         <button
           type="button"
           disabled={
-            loading || saving || !assessment.valid || !hasUnsavedChanges
+            locked ||
+            loading ||
+            saving ||
+            !assessment.valid ||
+            !hasUnsavedChanges
           }
           onClick={() => void saveRoster()}
         >
-          {saving ? "Saving…" : "Save roster"}
+          {locked ? "Roster locked" : saving ? "Saving…" : "Save roster"}
         </button>
       </div>
 
@@ -276,6 +308,12 @@ export function RosterPanel({ league, userId }: Props) {
           {notice && (
             <p className="success" role="status">
               {notice}
+            </p>
+          )}
+          {locked && (
+            <p className="lock-callout" role="status">
+              The season roster deadline has passed. Your saved roster is
+              unchanged; eligible teams can make transfers below.
             </p>
           )}
           {savedIds.length > 0 && !savedAssessment.valid && (
@@ -329,6 +367,7 @@ export function RosterPanel({ league, userId }: Props) {
                         <button
                           type="button"
                           className="secondary-button small-button"
+                          disabled={locked}
                           aria-label={`Remove ${player?.name ?? "unavailable player"}`}
                           onClick={() =>
                             updateDraft(
@@ -392,6 +431,7 @@ export function RosterPanel({ league, userId }: Props) {
                   {visiblePlayers.map((player) => {
                     const selected = draftIds.includes(player.id);
                     const disabled =
+                      locked ||
                       (!selected &&
                         (!player.active ||
                           !player.ready ||
@@ -440,6 +480,16 @@ export function RosterPanel({ league, userId }: Props) {
             </section>
           </div>
         </>
+      )}
+      {!loading && teamId && (
+        <TransferPanel
+          leagueId={league.id}
+          teamId={teamId}
+          rosterSize={league.roster_size}
+          budget={Number(league.budget)}
+          players={players}
+          onLockState={updateLockState}
+        />
       )}
     </section>
   );

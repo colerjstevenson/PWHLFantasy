@@ -17,6 +17,7 @@ import {
 } from "../lib/league";
 import { supabase } from "../lib/supabase";
 import { RosterPanel } from "./RosterPanel";
+import { StandingsPanel } from "./StandingsPanel";
 
 type Season = {
   id: string;
@@ -528,6 +529,11 @@ export function LeaguePanel({ userId, inviteToken }: Props) {
               </p>
             </div>
           </div>
+
+          <StandingsPanel
+            key={`standings-${selectedLeague.id}`}
+            leagueId={selectedLeague.id}
+          />
 
           <h4>Members</h4>
           {members.length === 0 ? (

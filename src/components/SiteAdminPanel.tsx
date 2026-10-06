@@ -13,6 +13,10 @@ import {
   type ScoringValues,
 } from "../lib/catalog";
 import { parsePwhlImport, type PwhlImportPayload } from "../lib/pwhlImport";
+import {
+  parseFinalGameImport,
+  type FinalGameImportPayload,
+} from "../lib/gameScoring";
 import { supabase } from "../lib/supabase";
 
 const SCORING_LABELS: ReadonlyArray<[keyof ScoringValues, string]> = [
@@ -66,6 +70,17 @@ type ImportRun = {
   error_message: string | null;
 };
 
+type GameImportRun = {
+  id: number;
+  started_at: string;
+  completed_at: string | null;
+  status: string;
+  game_count: number;
+  stat_count: number;
+  error_message: string | null;
+  source: string;
+};
+
 type Props = { userId: string };
 
 function getErrorMessage(error: unknown): string {
@@ -99,6 +114,10 @@ export function SiteAdminPanel({ userId }: Props) {
   const [players, setPlayers] = useState<CatalogPlayer[]>([]);
   const [runs, setRuns] = useState<ImportRun[]>([]);
   const [payload, setPayload] = useState<PwhlImportPayload | null>(null);
+  const [gamePayload, setGamePayload] = useState<FinalGameImportPayload | null>(
+    null,
+  );
+  const [gameRuns, setGameRuns] = useState<GameImportRun[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -119,6 +138,7 @@ export function SiteAdminPanel({ userId }: Props) {
       playersResult,
       runsResult,
       costsResult,
+      gameRunsResult,
     ] = await Promise.all([
       supabase.from("catalog_seasons").select("*").eq("id", id).maybeSingle(),
       supabase
@@ -133,6 +153,7 @@ export function SiteAdminPanel({ userId }: Props) {
         .order("started_at", { ascending: false })
         .limit(20),
       supabase.from("tier_costs").select("*").eq("season_id", id),
+      supabase.rpc("get_game_import_runs", { p_season_id: id }),
     ]);
     const failed = [
       seasonResult.error,
@@ -140,6 +161,7 @@ export function SiteAdminPanel({ userId }: Props) {
       playersResult.error,
       runsResult.error,
       costsResult.error,
+      gameRunsResult.error,
     ].find(Boolean);
     if (failed) throw failed;
 
@@ -176,6 +198,7 @@ export function SiteAdminPanel({ userId }: Props) {
       }),
     );
     setRuns((runsResult.data ?? []) as ImportRun[]);
+    setGameRuns((gameRunsResult.data ?? []) as GameImportRun[]);
     const costsByTier = new Map(
       (costsResult.data ?? []).map((cost) => [
         Number(cost.tier),
@@ -336,6 +359,72 @@ export function SiteAdminPanel({ userId }: Props) {
       await loadCatalog(seasonId.trim()).catch((loadError: unknown) =>
         setError(
           `${getErrorMessage(caught)} Catalog refresh failed: ${getErrorMessage(loadError)}`,
+        ),
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function chooseGameImport(event: ChangeEvent<HTMLInputElement>) {
+    const input = event.currentTarget;
+    const file = input.files?.[0];
+    setGamePayload(null);
+    setError(null);
+    setNotice(null);
+    if (!file) return;
+    try {
+      const parsed: unknown = JSON.parse(await file.text());
+      const gameImport = parseFinalGameImport(parsed);
+      setGamePayload(gameImport);
+      setNotice(
+        `Validated ${gameImport.games.length} games; ${gameImport.games.filter((game) => game.status === 4 && game.final).length} are official final.`,
+      );
+    } catch (caught) {
+      setError(getErrorMessage(caught));
+    } finally {
+      input.value = "";
+    }
+  }
+
+  async function importGameStats() {
+    if (!supabase || !gamePayload) return;
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const { error: importError } = await supabase.rpc(
+        "import_final_game_data",
+        {
+          p_season_id: seasonId.trim(),
+          p_games: gamePayload.games,
+          p_schedule_complete: gamePayload.scheduleComplete,
+        },
+      );
+      if (importError) {
+        const { error: recordError } = await supabase.rpc(
+          "record_game_import_failure",
+          {
+            p_season_id: seasonId.trim(),
+            p_error_message: importError.message,
+            p_source: "owner_upload",
+          },
+        );
+        if (recordError) {
+          throw new Error(
+            `${importError.message} Import failure could not be recorded: ${recordError.message}`,
+          );
+        }
+        throw importError;
+      }
+      setGamePayload(null);
+      await loadCatalog(seasonId.trim());
+      setNotice("Game schedule and official final statistics imported.");
+    } catch (caught) {
+      setError(getErrorMessage(caught));
+      await loadCatalog(seasonId.trim()).catch((loadError: unknown) =>
+        setError(
+          `${getErrorMessage(caught)} Import history refresh failed: ${getErrorMessage(loadError)}`,
         ),
       );
     } finally {
@@ -598,6 +687,74 @@ export function SiteAdminPanel({ userId }: Props) {
               {busy ? "Importing…" : "Save settings and import"}
             </button>
           </div>
+        )}
+      </div>
+
+      <div className="admin-section">
+        <h3>Import game schedule and final statistics</h3>
+        <p>
+          Upload normalized games with <code>gameId</code>,{" "}
+          <code>startsAt</code>, <code>gameType</code>, <code>status</code>,{" "}
+          <code>final</code>, and per-player stats. Add{" "}
+          <code>regularSeasonScheduleComplete: true</code> only when the file
+          contains the full regular-season schedule. Only official final games
+          (status 4 and final true) score; the import replaces prior stats for
+          each included game so corrections recalculate standings. To retry a
+          failed upload, select and import that JSON again; scheduled errors are
+          attempted again on the next enabled run.
+        </p>
+        <label className="file-picker">
+          Select game JSON
+          <input
+            type="file"
+            accept=".json,application/json"
+            onChange={chooseGameImport}
+            disabled={busy}
+          />
+        </label>
+        {gamePayload && (
+          <div className="import-preview">
+            <p>
+              Ready to import {gamePayload.games.length} games, including{" "}
+              {
+                gamePayload.games.filter(
+                  (game) => game.status === 4 && game.final,
+                ).length
+              }{" "}
+              official final games.{" "}
+              {gamePayload.scheduleComplete
+                ? "This file marks the regular-season schedule complete."
+                : "Season completion will remain unconfirmed."}
+            </p>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void importGameStats()}
+            >
+              {busy ? "Importing…" : "Import games and recalculate scores"}
+            </button>
+          </div>
+        )}
+        <h4>Game import history</h4>
+        {gameRuns.length === 0 ? (
+          <p className="fine-print">No game imports have been recorded.</p>
+        ) : (
+          <ul className="member-list">
+            {gameRuns.map((run) => (
+              <li key={run.id}>
+                <span>
+                  <strong>
+                    {run.status} · {run.game_count} games · {run.stat_count}{" "}
+                    player records
+                  </strong>
+                  <small>
+                    {formatTimestamp(run.started_at)} · {run.source}
+                    {run.error_message ? ` · ${run.error_message}` : ""}
+                  </small>
+                </span>
+              </li>
+            ))}
+          </ul>
         )}
       </div>
 

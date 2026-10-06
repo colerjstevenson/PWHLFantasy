@@ -156,3 +156,43 @@ the roster before lock. Client rules are covered by `npm test`; database
 authorization and roster validation are covered by
 `npx supabase test db` against a disposable local Supabase database. Never run
 database test fixtures against production.
+
+## Phase 6: roster lock and transfers
+
+The Phase 6 migration snapshots every team’s saved roster at the global lock
+and records whether it met the roster-size, position, player-eligibility, and
+budget rules. The snapshot is immutable and does not repair or rewrite a
+manager’s saved roster. League members can see team eligibility; only a
+manager can see their own roster and detailed ineligibility reasons.
+
+The migration installs a `pg_cron` job that checks for due locks and transfers
+every minute. The lock is stored as an absolute instant and displayed using
+`America/New_York`; monthly allowance periods and next-midnight transfer
+effective times are also calculated in that time zone. The lock snapshot is
+created idempotently by the scheduled job and by the manager transfer-status
+flow if the scheduled run is delayed.
+
+Managers whose team was eligible at lock can confirm up to three swaps per
+Eastern calendar month. A swap is validated transactionally against the
+current roster, active/reviewed catalog, budget, and positional minimums. It
+becomes effective at the next Eastern midnight and updates the saved roster
+and effective-dated ownership history together. Only one swap can be pending
+per team. A pending swap can be cancelled before its effective time; a
+cancellation restores that month’s allowance. A transfer cannot be cancelled
+once it is effective.
+
+The manager interface shows lock eligibility, current allowance, eligible
+swap candidates, pending cancellation, and transfer history. The database
+functions remain authoritative if catalog state or concurrent requests make
+the displayed assessment stale. Database coverage includes lock snapshots,
+eligibility visibility, daylight-saving/month-boundary calculations,
+budget/position checks, allowance accounting, cancellation/refund, ownership
+history updates, and conflicting pending requests. Apply and test migrations
+with `npx supabase db push` and `npx supabase test db` against a disposable
+development database only. Confirm that the scheduler job exists with:
+
+```sql
+select jobname, schedule
+from cron.job
+where jobname = 'pwhl-fantasy-phase6-events';
+```

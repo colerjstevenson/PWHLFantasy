@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(18);
+select plan(38);
 
 insert into auth.users (id, aud, role, email, created_at, updated_at)
 values
@@ -285,14 +285,277 @@ select throws_ok(
 );
 
 reset role;
+update public.catalog_seasons
+set roster_lock_at = now() - interval '1 second'
+where id = 'phase5-roster-test';
+select public.lock_rosters_for_season('phase5-roster-test');
+set local role authenticated;
+select set_config(
+  'request.jwt.claim.sub',
+  '00000000-0000-0000-0000-000000000032',
+  true
+);
+select is(
+  public.phase6_next_eastern_midnight('2026-03-08 06:30:00+00'),
+  '2026-03-09 04:00:00+00'::timestamptz,
+  'next Eastern midnight accounts for the spring daylight-saving change'
+);
+select is(
+  public.phase6_eastern_month_start('2026-04-01 03:59:59+00'),
+  '2026-03-01'::date,
+  'transfer allowance month follows Eastern time at a UTC month boundary'
+);
+select is(
+  public.phase6_next_eastern_midnight('2026-11-01 03:59:59+00'),
+  '2026-11-01 04:00:00+00'::timestamptz,
+  'a transfer confirmed just before Eastern month-end takes effect at that midnight'
+);
+select is(
+  public.phase6_next_eastern_midnight('2026-11-01 04:00:00+00'),
+  '2026-11-02 04:00:00+00'::timestamptz,
+  'a transfer confirmed at the Eastern monthly reset uses the following midnight'
+);
+select ok(
+  (
+    select eligible
+    from public.roster_lock_snapshots
+    where team_id = current_setting('test.roster_team_id')::uuid
+  ),
+  'the valid roster receives an eligible immutable lock snapshot'
+);
+select is(
+  (
+    select jsonb_array_length(roster)
+    from public.roster_lock_snapshots
+    where team_id = current_setting('test.roster_team_id')::uuid
+  ),
+  6,
+  'the lock snapshot contains the saved roster without changing it'
+);
+select is(
+  (
+    select count(*)::integer
+    from public.get_league_roster_lock_status(
+      current_setting('test.roster_league_id')::uuid
+    )
+  ),
+  2,
+  'league members can see lock eligibility without seeing other rosters'
+);
+select throws_ok(
+  $$
+    select public.request_fantasy_transfer(
+      current_setting('test.roster_team_id')::uuid, 'r-f1', 'r-d3'
+    )
+  $$,
+  '22023',
+  'The transfer would leave fewer than 3 forwards.',
+  'a transfer cannot violate the forward minimum'
+);
+select throws_ok(
+  $$
+    select public.request_fantasy_transfer(
+      current_setting('test.roster_team_id')::uuid, 'r-d1', 'r-f4'
+    )
+  $$,
+  '22023',
+  'The transfer would leave fewer than 2 defence players.',
+  'a transfer cannot violate the defence minimum'
+);
+select throws_ok(
+  $$
+    select public.request_fantasy_transfer(
+      current_setting('test.roster_team_id')::uuid, 'r-g1', 'r-f4'
+    )
+  $$,
+  '22023',
+  'The transfer would leave no goalie.',
+  'a transfer cannot remove the only goalie'
+);
+reset role;
+update public.leagues
+set budget = 59.99
+where id = current_setting('test.roster_league_id')::uuid;
+set local role authenticated;
+select set_config(
+  'request.jwt.claim.sub',
+  '00000000-0000-0000-0000-000000000032',
+  true
+);
+select throws_ok(
+  $$
+    select public.request_fantasy_transfer(
+      current_setting('test.roster_team_id')::uuid, 'r-f1', 'r-f4'
+    )
+  $$,
+  '22023',
+  'The transfer would exceed the league budget.',
+  'a transfer cannot exceed the team budget'
+);
+reset role;
+update public.leagues
+set budget = 60
+where id = current_setting('test.roster_league_id')::uuid;
+set local role authenticated;
+select set_config(
+  'request.jwt.claim.sub',
+  '00000000-0000-0000-0000-000000000032',
+  true
+);
+select set_config(
+  'test.pending_transfer_id',
+  public.request_fantasy_transfer(
+    current_setting('test.roster_team_id')::uuid, 'r-f1', 'r-f4'
+  )::text,
+  true
+);
+select is(
+  (
+    select effective_at
+    from public.fantasy_transfers
+    where id = current_setting('test.pending_transfer_id')::uuid
+  ),
+  (
+    select public.phase6_next_eastern_midnight(confirmed_at)
+    from public.fantasy_transfers
+    where id = current_setting('test.pending_transfer_id')::uuid
+  ),
+  'confirmed transfers take effect at the next Eastern midnight'
+);
+select throws_ok(
+  $$
+    select public.request_fantasy_transfer(
+      current_setting('test.roster_team_id')::uuid, 'r-f2', 'r-d3'
+    )
+  $$,
+  '55000',
+  'A transfer is already pending for this team.',
+  'serialized concurrent requests cannot create conflicting pending swaps'
+);
+select lives_ok(
+  $$
+    select public.cancel_fantasy_transfer(
+      current_setting('test.roster_team_id')::uuid,
+      current_setting('test.pending_transfer_id')::uuid
+    )
+  $$,
+  'a pending transfer can be cancelled before its effective time'
+);
+select is(
+  (
+    select count(*)::integer
+    from public.fantasy_transfers
+    where team_id = current_setting('test.roster_team_id')::uuid
+      and confirmation_month = public.phase6_eastern_month_start(now())
+      and status <> 'cancelled'
+  ),
+  0,
+  'cancelling a pending transfer restores the monthly allowance'
+);
+select set_config(
+  'test.pending_transfer_id',
+  public.request_fantasy_transfer(
+    current_setting('test.roster_team_id')::uuid, 'r-f1', 'r-f4'
+  )::text,
+  true
+);
+reset role;
+update public.fantasy_transfers
+set effective_at = clock_timestamp() - interval '1 second'
+where id = current_setting('test.pending_transfer_id')::uuid;
+set local role authenticated;
+select set_config(
+  'request.jwt.claim.sub',
+  '00000000-0000-0000-0000-000000000032',
+  true
+);
+select ok(
+  (
+    public.get_my_transfer_state(
+      current_setting('test.roster_team_id')::uuid
+    ) -> 'player_ids'
+  ) @> '["r-f4"]'::jsonb,
+  'a due transfer is applied atomically when status is refreshed'
+);
+select is(
+  (
+    select status
+    from public.fantasy_transfers
+    where id = current_setting('test.pending_transfer_id')::uuid
+  ),
+  'effective',
+  'the transfer history records when a pending swap becomes effective'
+);
+select is(
+  (
+    select count(*)::integer
+    from public.fantasy_player_ownership
+    where team_id = current_setting('test.roster_team_id')::uuid
+      and player_id = 'r-f1'
+      and valid_until is not null
+  ),
+  1,
+  'ownership history closes the outgoing player interval at transfer time'
+);
+reset role;
+insert into public.fantasy_transfers (
+  team_id,
+  outgoing_player_id,
+  incoming_player_id,
+  confirmed_at,
+  confirmation_month,
+  effective_at,
+  status
+)
+select
+  current_setting('test.roster_team_id')::uuid,
+  'r-f2',
+  'r-d3',
+  now(),
+  public.phase6_eastern_month_start(now()),
+  now(),
+  'effective'
+union all
+select
+  current_setting('test.roster_team_id')::uuid,
+  'r-d1',
+  'r-f3',
+  now(),
+  public.phase6_eastern_month_start(now()),
+  now(),
+  'effective';
+set local role authenticated;
+select set_config(
+  'request.jwt.claim.sub',
+  '00000000-0000-0000-0000-000000000032',
+  true
+);
+select throws_ok(
+  $$
+    select public.request_fantasy_transfer(
+      current_setting('test.roster_team_id')::uuid, 'r-f2', 'r-d3'
+    )
+  $$,
+  '54000',
+  'The monthly transfer limit has been reached.',
+  'three monthly transfers prevent another confirmed swap'
+);
 select set_config(
   'request.jwt.claim.sub',
   '00000000-0000-0000-0000-000000000031',
   true
 );
-update public.catalog_seasons
-set roster_lock_at = now() - interval '1 second'
-where id = 'phase5-roster-test';
+select is(
+  (
+    select count(*)::integer
+    from public.fantasy_transfers
+    where team_id = current_setting('test.roster_team_id')::uuid
+  ),
+  0,
+  'another league member cannot read a manager transfer history'
+);
+
+reset role;
 set local role authenticated;
 select set_config(
   'request.jwt.claim.sub',
